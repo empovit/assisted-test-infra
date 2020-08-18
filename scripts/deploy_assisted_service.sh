@@ -8,7 +8,7 @@ export SERVICE_NAME=assisted-service
 export NAMESPACE=${NAMESPACE:-assisted-installer}
 export SERVICE_URL=$(get_main_ip)
 export SERVICE_PORT=${SERVICE_PORT:-6000}
-export SERVICE_BASE_URL="http://${SERVICE_URL}:${SERVICE_PORT}"
+export SERVICE_BASE_URL="https://${SERVICE_URL}:${SERVICE_PORT}"
 
 mkdir -p build
 
