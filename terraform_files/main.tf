@@ -37,10 +37,24 @@ resource "libvirt_network" "net" {
       ip = var.api_vip
       hostname = "api.${var.cluster_name}.${var.cluster_domain}"
     }
+    hosts {
+    	for_each {
+    		for e in flatten(data.libvirt_network_dns_host_template.hosts.*.rendered ): "${e.hostname}" => e
+    	}
+        ip = each.value.ip
+        hostname = each.value.hostname
+    }
   }
 
   autostart = true
 }
+
+data "libvirt_network_dns_host_template" "hosts" {
+  count    = var.master_count
+  ip       = var.libvirt_master_ips[count.index]
+  hostname   = "${var.cluster_name}-master-${count.index}.${var.cluster_domain}"
+}
+
 
 resource "libvirt_network" "secondary-net" {
   name = var.libvirt_secondary_network_name
@@ -79,12 +93,12 @@ resource "libvirt_domain" "master" {
   network_interface {
     network_name = var.libvirt_network_name
     hostname   = "${var.cluster_name}-master-${count.index}.${var.cluster_domain}"
-    addresses  = [var.libvirt_master_ips[count.index]]
+    # addresses  = [var.libvirt_master_ips[count.index]]
   }
 
   network_interface {
     network_name = var.libvirt_secondary_network_name
-    addresses  = [var.libvirt_secondary_master_ips[count.index]]
+    # addresses  = [var.libvirt_secondary_master_ips[count.index]]
   }
 
   boot_device{
@@ -122,12 +136,12 @@ resource "libvirt_domain" "worker" {
   network_interface {
     network_name = var.libvirt_network_name
     hostname   = "${var.cluster_name}-worker-${count.index}.${var.cluster_domain}"
-    addresses  = [var.libvirt_worker_ips[count.index]]
+    # addresses  = [var.libvirt_worker_ips[count.index]]
   }
 
   network_interface {
     network_name = var.libvirt_secondary_network_name
-    addresses  = [var.libvirt_secondary_worker_ips[count.index]]
+    # addresses  = [var.libvirt_secondary_worker_ips[count.index]]
   }
 
   boot_device{

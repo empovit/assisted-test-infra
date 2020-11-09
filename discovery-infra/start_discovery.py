@@ -39,15 +39,15 @@ def fill_tfvars(
 
     master_starting_ip = str(
         ipaddress.ip_address(
-            ipaddress.IPv4Network(nodes_details["machine_cidr"]).network_address
+            ipaddress.IPv6Network(nodes_details["machine_cidr"]).network_address
         )
-        + 10
+        + 16
     )
     worker_starting_ip = str(
         ipaddress.ip_address(
-            ipaddress.IPv4Network(nodes_details["machine_cidr"]).network_address
+            ipaddress.IPv6Network(nodes_details["machine_cidr"]).network_address
         )
-        + 10
+        + 16
         + int(tfvars["master_count"])
     )
     master_count = min(master_count, consts.NUMBER_OF_MASTERS)
@@ -72,15 +72,15 @@ def fill_tfvars(
 def _secondary_tfvars(master_count, nodes_details):
     secondary_master_starting_ip = str(
         ipaddress.ip_address(
-            ipaddress.IPv4Network(nodes_details['provisioning_cidr']).network_address
+            ipaddress.IPv6Network(nodes_details['provisioning_cidr']).network_address
         )
-        + 10
+        + 16
     )
     secondary_worker_starting_ip = str(
         ipaddress.ip_address(
-            ipaddress.IPv4Network(nodes_details['provisioning_cidr']).network_address
+            ipaddress.IPv6Network(nodes_details['provisioning_cidr']).network_address
         )
-        + 10
+        + 16
         + int(master_count)
     )
     return {
@@ -199,7 +199,7 @@ def set_cluster_machine_cidr(client, cluster_id, machine_cidr):
 def _get_vips_ips():
     network_subnet_starting_ip = str(
         ipaddress.ip_address(
-            ipaddress.IPv4Network(args.vm_network_cidr).network_address
+            ipaddress.IPv6Network(args.vm_network_cidr).network_address
         )
         + 100
     )
@@ -361,7 +361,7 @@ def execute_day1_flow(cluster_name):
         args.base_dns_domain = args.managed_dns_domains.split(":")[0]
 
     if not args.vm_network_cidr:
-        net_cidr = IPNetwork('AE80::/64')
+        net_cidr = IPNetwork('AE80::/120')
         net_cidr += args.ns_index
         args.vm_network_cidr = str(net_cidr)
 
