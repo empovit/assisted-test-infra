@@ -361,7 +361,7 @@ def execute_day1_flow(cluster_name):
         args.base_dns_domain = args.managed_dns_domains.split(":")[0]
 
     if not args.vm_network_cidr:
-        net_cidr = IPNetwork('AE80::/120')
+        net_cidr = IPNetwork('2001:db8::/120')
         net_cidr += args.ns_index
         args.vm_network_cidr = str(net_cidr)
 

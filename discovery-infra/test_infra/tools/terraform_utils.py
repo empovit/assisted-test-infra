@@ -1,5 +1,6 @@
 from python_terraform import *
 import logging
+import time
 
 
 class TerraformUtils:
@@ -14,13 +15,18 @@ class TerraformUtils:
         self.init_tf()
 
     def init_tf(self):
-        self.tf.cmd("init -plugin-dir=/root/.terraform.d/plugins/", raise_on_error=True)
+        try:
+            self.tf.cmd("init -plugin-dir=/root/.terraform.d/plugins/", raise_on_error=True)
+        except:
+            logging.exception("Init")
+            time.sleep(30000)
 
     def apply(self, refresh=True):
         return_value, output, err = self.tf.apply(no_color=IsFlagged, refresh=refresh, input=True, skip_plan=True)
         if return_value != 0:
             message = f'Terraform apply failed with return value {return_value}, output {output} , error {err}'
             logging.error(message)
+            time.sleep(30000)
             raise Exception(message)
 
     def change_variables(self, variables, refresh=False):
