@@ -112,6 +112,22 @@ function config_firewalld() {
     sudo systemctl start firewalld
 }
 
+function config_squid() {
+    echo "Config squid"
+    sudo dnf install -y squid
+    sudo sed -i -e  '/^acl CONNECT.*/a acl allowed_ips src 2001:db8::/120' -e '/^http_access deny all/i http_access allow allowed_ips'  /etc/squid/squid.conf
+    sudo systemctl start squid
+    sudo EXTERNAL_PORT=n add_firewalld_port 3128
+}
+
+fix_ipv6_routing() {
+  for intf in `ls -l /sys/class/net/ | grep root | grep -v virtual | awk '{print $9}'` ; do
+      sudo echo "net.ipv6.conf.${intf}.accept_ra = 2" >> /etc/sysctl.conf
+  done
+  sudo sysctl --load
+}
+
+
 function additional_configs() {
     if [ "${ADD_USER_TO_SUDO}" != "n" ]; then
         current_user=$(whoami)
@@ -141,4 +157,6 @@ install_libvirt
 install_runtime_container
 install_skipper
 config_firewalld
+config_squid
+fix_ipv6_routing
 additional_configs
