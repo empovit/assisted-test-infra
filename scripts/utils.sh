@@ -40,17 +40,17 @@ function spawn_port_forwarding_command() {
     target=$7
     ip=${8:-""}
     port=${9:-""}
+    ipversion=${10:-"IPv4"}
 
-    filename=${service_name}__${namespace}__${namespace_index}__${external_port}__assisted_installer
+    filename=${service_name}__${namespace}__${namespace_index}__${external_port}__assisted_installer_${ipversion}
     if [ "$target" = "minikube" ]; then
         ip=$(minikube -p $profile ip)
         port=$(kubectl --server $(get_profile_url $profile) --kubeconfig=$kubeconfig get svc/${service_name} -n ${NAMESPACE} -o=jsonpath='{.spec.ports[0].nodePort}')
     fi
     cat <<EOF >build/xinetd-$filename
-service ${service_name}
+service ${service_name}_${ipversion}
 {
-  flags		= IPv4
-  bind		= 0.0.0.0
+  flags		= ${ipversion}
   type		= UNLISTED
   socket_type	= stream
   protocol	= tcp
@@ -58,7 +58,6 @@ service ${service_name}
   wait		= no
   redirect	= $ip $port
   port		= ${external_port}
-  only_from	= 0.0.0.0/0
   per_source	= UNLIMITED
   instances	= UNLIMITED
 }
@@ -83,6 +82,10 @@ function kill_port_forwardings() {
 
 function get_main_ip() {
     echo "$(ip route get 1 | sed 's/^.*src \([^ ]*\).*$/\1/;q')"
+}
+
+function get_main_ip_v6() {
+    echo "$(ip -6 route get ::ffff:100:0 | sed 's/^.*src \([^ ]*\).*$/\1/;q')"
 }
 
 function wait_for_url_and_run() {

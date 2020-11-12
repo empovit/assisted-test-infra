@@ -12,7 +12,6 @@ export SERVICE_BASE_URL=${SERVICE_BASE_URL:-"http://${SERVICE_URL}:${SERVICE_POR
 export EXTERNAL_PORT=${EXTERNAL_PORT:-y}
 export PROFILE=${PROFILE:-assisted-installer}
 export OCP_SERVICE_PORT=$(( 7000 + $NAMESPACE_INDEX ))
-export SERVICE_ONPREM=quay.io/ocpmetal/assisted-service-onprem:latest
 
 mkdir -p build
 
@@ -25,12 +24,17 @@ elif [ "${DEPLOY_TARGET}" == "ocp" ]; then
     add_firewalld_port $OCP_SERVICE_PORT
 
     OCP_BASE_URL=http://$SERVICE_URL:$OCP_SERVICE_PORT
-	IP_NODEPORT=$(skipper run "scripts/ocp.sh deploy_service $OCP_KUBECONFIG $SERVICE_ONPREM $SERVICE_NAME $OCP_BASE_URL $NAMESPACE")
+	IP_NODEPORT=$(skipper run "scripts/ocp.sh deploy_service $OCP_KUBECONFIG $SERVICE $SERVICE_NAME $OCP_BASE_URL $NAMESPACE" 2>&1 | tee /dev/tty | tail -1)
     read -r CLUSTER_VIP SERVICE_NODEPORT <<< "$IP_NODEPORT"
 
     wait_for_url_and_run "$OCP_BASE_URL" "spawn_port_forwarding_command $SERVICE_NAME $OCP_SERVICE_PORT $NAMESPACE $NAMESPACE_INDEX $PROFILE $OCP_KUBECONFIG ocp $CLUSTER_VIP $SERVICE_NODEPORT"
     print_log "${SERVICE_NAME} can be reached at http://${SERVICE_URL}:${OCP_SERVICE_PORT}"
 else
+
+    export SERVICE_URL=$(get_main_ip_v6)
+    export SERVICE_PORT=$(( 6060 + $NAMESPACE_INDEX ))
+    export SERVICE_BASE_URL="http://[${SERVICE_URL}]:${SERVICE_PORT}"
+
     print_log "Updating assisted_service params"
     skipper run discovery-infra/update_assisted_service_cm.py ENABLE_AUTH=${ENABLE_AUTH}
     skipper run "make -C assisted-service/ deploy-all" ${SKIPPER_PARAMS} DEPLOY_TAG=${DEPLOY_TAG} DEPLOY_MANIFEST_PATH=${DEPLOY_MANIFEST_PATH} DEPLOY_MANIFEST_TAG=${DEPLOY_MANIFEST_TAG} NAMESPACE=${NAMESPACE} ENABLE_AUTH=${ENABLE_AUTH} PROFILE=${PROFILE}
@@ -41,7 +45,7 @@ else
     add_firewalld_port $SERVICE_PORT
 
     print_log "Starting port forwarding for deployment/${SERVICE_NAME} on port $SERVICE_PORT"
-    wait_for_url_and_run ${SERVICE_BASE_URL} "spawn_port_forwarding_command $SERVICE_NAME $SERVICE_PORT $NAMESPACE $NAMESPACE_INDEX $PROFILE $KUBECONFIG minikube"
+    wait_for_url_and_run ${SERVICE_BASE_URL} "spawn_port_forwarding_command $SERVICE_NAME $SERVICE_PORT $NAMESPACE $NAMESPACE_INDEX $PROFILE $KUBECONFIG minikube '' '' IPv6"
     print_log "${SERVICE_NAME} can be reached at ${SERVICE_BASE_URL} "
     print_log "Done"
 fi
