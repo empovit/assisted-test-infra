@@ -30,7 +30,7 @@ resource "libvirt_network" "net" {
   mtu = var.libvirt_network_mtu
   domain = var.cluster_domain
 
-  addresses = [var.machine_cidr]
+  addresses = var.machine_cidr_addresses
 
   dns {
     hosts  {
@@ -47,7 +47,7 @@ resource "libvirt_network" "secondary-net" {
   name = var.libvirt_secondary_network_name
   mode   = "nat"
   bridge = var.libvirt_secondary_network_if
-  addresses = [var.provisioning_cidr]
+  addresses = var.provisioning_cidr_addresses
   autostart = true
 }
 
@@ -80,13 +80,13 @@ resource "libvirt_domain" "master" {
   network_interface {
     network_name = var.libvirt_network_name
     hostname   = "${var.cluster_name}-master-${count.index}.${var.cluster_domain}"
-    # addresses  = [var.libvirt_master_ips[count.index]]
+    addresses  = var.libvirt_master_ips[count.index]
     wait_for_lease = true
   }
 
   network_interface {
     network_name = var.libvirt_secondary_network_name
-    # addresses  = [var.libvirt_secondary_master_ips[count.index]]
+    addresses  = var.libvirt_secondary_master_ips[count.index]
     wait_for_lease = true
   }
 
@@ -125,13 +125,13 @@ resource "libvirt_domain" "worker" {
   network_interface {
     network_name = var.libvirt_network_name
     hostname   = "${var.cluster_name}-worker-${count.index}.${var.cluster_domain}"
-    # addresses  = [var.libvirt_worker_ips[count.index]]
+    addresses  = [var.libvirt_worker_ips[count.index]]
     wait_for_lease = true
   }
 
   network_interface {
     network_name = var.libvirt_secondary_network_name
-    # addresses  = [var.libvirt_secondary_worker_ips[count.index]]
+    addresses  = [var.libvirt_secondary_worker_ips[count.index]]
     wait_for_lease = true
   }
 

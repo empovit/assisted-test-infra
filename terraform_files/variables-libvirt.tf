@@ -23,9 +23,19 @@ variable "machine_cidr" {
   description = "Cluster domain"
 }
 
+variable machine_cidr_addresses {
+    type = list(string)
+    description = "Addresses for machine CIDR network"
+}
+
 variable "provisioning_cidr" {
   type        = string
   description = "Provisioning domain"
+}
+
+variable provisioning_cidr_addresses {
+    type = list(string)
+    description = "Addresses for provisioning CIDR network"
 }
 
 variable "libvirt_uri" {
@@ -59,12 +69,12 @@ variable "libvirt_network_mtu" {
 }
 
 variable "libvirt_master_ips" {
-  type        = list(string)
+  type        = list(list(string))
   description = "the list of desired master ips. Must match master_count"
 }
 
 variable "libvirt_secondary_master_ips" {
-  type        = list(string)
+  type        = list(list(string))
   description = "the list of desired master second interface ips. Must match master_count"
 }
 

@@ -45,7 +45,7 @@ else
     add_firewalld_port $SERVICE_PORT
 
     print_log "Starting port forwarding for deployment/${SERVICE_NAME} on port $SERVICE_PORT"
-    wait_for_url_and_run ${SERVICE_BASE_URL} "spawn_port_forwarding_command $SERVICE_NAME $SERVICE_PORT $NAMESPACE $NAMESPACE_INDEX $PROFILE $KUBECONFIG minikube '' '' IPv6"
+    wait_for_url_and_run ${SERVICE_BASE_URL} "spawn_port_forwarding_command $SERVICE_NAME $SERVICE_PORT $NAMESPACE $NAMESPACE_INDEX $PROFILE $KUBECONFIG minikube
     print_log "${SERVICE_NAME} can be reached at ${SERVICE_BASE_URL} "
     print_log "Done"
 fi

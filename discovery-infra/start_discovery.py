@@ -31,37 +31,61 @@ def fill_tfvars(
         storage_path,
         master_count,
         nodes_details,
-        tf_folder
+        tf_folder,
+        ipv4,
+        ipv6
 ):
     tfvars_json_file = os.path.join(tf_folder, consts.TFVARS_JSON_NAME)
     with open(tfvars_json_file) as _file:
         tfvars = json.load(_file)
 
-    master_starting_ip = str(
-        ipaddress.ip_address(
-            ipaddress.IPv6Network(nodes_details["machine_cidr"]).network_address
+    if ipv4:
+        master_starting_ip = str(
+            ipaddress.ip_address(
+                ipaddress.IPv4Network(nodes_details["machine_cidr"]).network_address
+            )
+            + 10
         )
-        + 16
-    )
-    worker_starting_ip = str(
-        ipaddress.ip_address(
-            ipaddress.IPv6Network(nodes_details["machine_cidr"]).network_address
+        worker_starting_ip = str(
+            ipaddress.ip_address(
+                ipaddress.IPv4Network(nodes_details["machine_cidr"]).network_address
+            )
+            + 10
+            + int(tfvars["master_count"])
         )
-        + 16
-        + int(tfvars["master_count"])
-    )
+    else:
+        master_starting_ip = str(
+            ipaddress.ip_address(
+                ipaddress.IPv6Network(nodes_details["machine_cidr"]).network_address
+            )
+            + 16
+        )
+        worker_starting_ip = str(
+            ipaddress.ip_address(
+                ipaddress.IPv6Network(nodes_details["machine_cidr"]).network_address
+            )
+            + 16
+            + int(tfvars["master_count"])
+        )
     master_count = min(master_count, consts.NUMBER_OF_MASTERS)
     tfvars['image_path'] = image_path
     tfvars['master_count'] = master_count
-    tfvars['libvirt_master_ips'] = utils.create_ip_address_list(
-        master_count, starting_ip_addr=master_starting_ip
-    )
+    if ipv4:
+        tfvars['libvirt_master_ips'] = utils.create_ip_address_nested_list(
+            master_count, starting_ip_addr=master_starting_ip
+        )
+    else:
+        tfvars['libvirt_master_ips'] = utils.create_empty_nested_list(
+            master_count
+        )
     tfvars['libvirt_worker_ips'] = utils.create_ip_address_list(
         nodes_details['worker_count'], starting_ip_addr=worker_starting_ip
     )
     tfvars['api_vip'] = _get_vips_ips()[0]
     tfvars['libvirt_storage_pool_path'] = storage_path
-    tfvars.update(nodes_details)
+    tfvars['ipv4'] = ipv4
+    tfvars['ipv6'] = ipv6
+    tfvars.update(nodes_details, ipv4)
 
     tfvars.update(_secondary_tfvars(master_count, nodes_details))
 
@@ -69,30 +93,55 @@ def fill_tfvars(
         json.dump(tfvars, _file)
 
 
-def _secondary_tfvars(master_count, nodes_details):
-    secondary_master_starting_ip = str(
-        ipaddress.ip_address(
-            ipaddress.IPv6Network(nodes_details['provisioning_cidr']).network_address
+def _secondary_tfvars(master_count, nodes_details, ipv4):
+    if ipv4:
+        secondary_master_starting_ip = str(
+            ipaddress.ip_address(
+                ipaddress.IPv4Network(nodes_details['provisioning_cidr']).network_address
+            )
+            + 10
         )
-        + 16
-    )
-    secondary_worker_starting_ip = str(
-        ipaddress.ip_address(
-            ipaddress.IPv6Network(nodes_details['provisioning_cidr']).network_address
+        secondary_worker_starting_ip = str(
+            ipaddress.ip_address(
+                ipaddress.IPv4Network(nodes_details['provisioning_cidr']).network_address
+            )
+            + 10
+            + int(master_count)
         )
-        + 16
-        + int(master_count)
-    )
-    return {
-        'libvirt_secondary_worker_ips': utils.create_ip_address_list(
-            nodes_details['worker_count'],
-            starting_ip_addr=secondary_worker_starting_ip
-        ),
-        'libvirt_secondary_master_ips': utils.create_ip_address_list(
-            master_count,
-            starting_ip_addr=secondary_master_starting_ip
+    else:
+        secondary_master_starting_ip = str(
+            ipaddress.ip_address(
+                ipaddress.IPv6Network(nodes_details['provisioning_cidr']).network_address
+            )
+            + 16
         )
-    }
+        secondary_worker_starting_ip = str(
+            ipaddress.ip_address(
+                ipaddress.IPv6Network(nodes_details['provisioning_cidr']).network_address
+            )
+            + 16
+            + int(master_count)
+        )
+    if ipv4:
+        return {
+            'libvirt_secondary_worker_ips': utils.create_ip_address_list(
+                nodes_details['worker_count'],
+                starting_ip_addr=secondary_worker_starting_ip
+            ),
+            'libvirt_secondary_master_ips': utils.create_ip_address_list(
+                master_count,
+                starting_ip_addr=secondary_master_starting_ip
+            )
+        }
+    else:
+        return {
+            'libvirt_secondary_worker_ips': utils.create_empty_nested_list(
+                nodes_details['worker_count'],
+            ),
+            'libvirt_secondary_master_ips': utils.create_empty_nested_list(
+                master_count
+            )
+        }
 
 
 # Run make run terraform -> creates vms
@@ -102,7 +151,9 @@ def create_nodes(
         storage_path,
         master_count,
         nodes_details,
-        tf
+        tf,
+        ipv4,
+        ipv6
 ):
     log.info("Creating tfvars")
     fill_tfvars(
@@ -110,7 +161,9 @@ def create_nodes(
         storage_path=storage_path,
         master_count=master_count,
         nodes_details=nodes_details,
-        tf_folder=tf.working_dir
+        tf_folder=tf.working_dir,
+        ipv4=ipv4,
+        ipv6=ipv6,
     )
     log.info('Start running terraform')
     with utils.file_lock_context():
@@ -126,7 +179,9 @@ def create_nodes_and_wait_till_registered(
         storage_path,
         master_count,
         nodes_details,
-        tf
+        tf,
+        ipv4,
+        ipv6
 ):
     nodes_count = master_count + nodes_details["worker_count"]
     create_nodes(
@@ -135,7 +190,9 @@ def create_nodes_and_wait_till_registered(
         storage_path=storage_path,
         master_count=master_count,
         nodes_details=nodes_details,
-        tf=tf
+        tf=tf,
+        ipv4=ipv4,
+        ipv6=ipv6
     )
 
     # TODO: Check for only new nodes
@@ -294,7 +351,8 @@ def nodes_flow(client, cluster_name, cluster, image_path):
     utils.recreate_folder(tf_folder)
     copy_tree(consts.TF_TEMPLATE, tf_folder)
     tf = terraform_utils.TerraformUtils(working_dir=tf_folder)
-
+    ipv4 = args.ipv4 == 'yes'
+    ipv6 = args.ipv6 == 'yes'
     create_nodes_and_wait_till_registered(
         cluster_name=cluster_name,
         inventory_client=client,
@@ -303,7 +361,9 @@ def nodes_flow(client, cluster_name, cluster, image_path):
         storage_path=args.storage_path,
         master_count=args.master_count,
         nodes_details=nodes_details,
-        tf=tf
+        tf=tf,
+        ipv4=ipv4,
+        ipv6=ipv6
     )
 
     if client:
@@ -361,7 +421,12 @@ def execute_day1_flow(cluster_name):
         args.base_dns_domain = args.managed_dns_domains.split(":")[0]
 
     if not args.vm_network_cidr:
-        net_cidr = IPNetwork('2001:db8::/120')
+        if args.ipv4 == 'yes':
+            net_cidr = IPNetwork('192.168.126.0/24')
+        elif args.ipv6 == 'yes':
+            net_cidr = IPNetwork('2001:db8::/120')
+        else:
+            raise Exception("At least one of IPv4/IPv6 must be enabled ")
         net_cidr += args.ns_index
         args.vm_network_cidr = str(net_cidr)
 
@@ -640,6 +705,18 @@ if __name__ == "__main__":
         help='Where assisted-service is deployed',
         type=str,
         default='minikube'
+    )
+    parser.add_argument(
+        "--ipv4",
+        help='Should IPv4 be installed',
+        type=str,
+        default='yes'
+    )
+    parser.add_argument(
+        "--ipv6",
+        help='Should IPv6 be installed',
+        type=str,
+        default=''
     )
     oc_utils.extend_parser_with_oc_arguments(parser)
     args = parser.parse_args()
