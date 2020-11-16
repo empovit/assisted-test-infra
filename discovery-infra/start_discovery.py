@@ -39,34 +39,19 @@ def fill_tfvars(
     with open(tfvars_json_file) as _file:
         tfvars = json.load(_file)
 
-    if ipv4:
-        master_starting_ip = str(
-            ipaddress.ip_address(
-                ipaddress.IPv4Network(nodes_details["machine_cidr"]).network_address
-            )
-            + 10
+    master_starting_ip = str(
+        ipaddress.ip_address(
+            ipaddress.IPv4Network(nodes_details["machine_cidr"]).network_address
         )
-        worker_starting_ip = str(
-            ipaddress.ip_address(
-                ipaddress.IPv4Network(nodes_details["machine_cidr"]).network_address
-            )
-            + 10
-            + int(tfvars["master_count"])
+        + 10
+    )
+    worker_starting_ip = str(
+        ipaddress.ip_address(
+            ipaddress.IPv4Network(nodes_details["machine_cidr"]).network_address
         )
-    else:
-        master_starting_ip = str(
-            ipaddress.ip_address(
-                ipaddress.IPv6Network(nodes_details["machine_cidr"]).network_address
-            )
-            + 16
-        )
-        worker_starting_ip = str(
-            ipaddress.ip_address(
-                ipaddress.IPv6Network(nodes_details["machine_cidr"]).network_address
-            )
-            + 16
-            + int(tfvars["master_count"])
-        )
+        + 10
+        + int(tfvars["master_count"])
+    )
     master_count = min(master_count, consts.NUMBER_OF_MASTERS)
     tfvars['image_path'] = image_path
     tfvars['master_count'] = master_count
@@ -84,19 +69,17 @@ def fill_tfvars(
     machine_cidr_addresses = []
     provisioning_cidr_addresses = []
     if ipv4:
-        machine_cidr_addresses += ["192.168.126.0/24"]
-        provisioning_cidr_addresses += ["192.168.140.0/24"]
+        machine_cidr_addresses += [nodes_details["machine_cidr"]]
+        provisioning_cidr_addresses += [nodes_details["provisioning_cidr"]]
     if ipv6:
-        machine_cidr_addresses += ["2001:db8::/120"]
-        provisioning_cidr_addresses += ["2001:db9::/120"]
+        machine_cidr_addresses += [nodes_details["machine_cidr6"]]
+        provisioning_cidr_addresses += [nodes_details["provisioning_cidr6"]]
 
 
     tfvars['machine_cidr_addresses'] = machine_cidr_addresses
     tfvars['provisioning_cidr_addresses'] = provisioning_cidr_addresses
-    tfvars['api_vip'] = _get_vips_ips()[0]
+    tfvars['api_vip'] = _get_vips_ips(ipv4)[0]
     tfvars['libvirt_storage_pool_path'] = storage_path
-    tfvars['ipv4'] = ipv4
-    tfvars['ipv6'] = ipv6
     tfvars.update(nodes_details)
 
     tfvars.update(_secondary_tfvars(master_count, nodes_details, ipv4))
@@ -249,9 +232,9 @@ def set_hosts_roles(client, cluster_id, network_name):
     client.set_hosts_roles(cluster_id=cluster_id, hosts_with_roles=added_hosts)
 
 
-def set_cluster_vips(client, cluster_id):
+def set_cluster_vips(client, cluster_id, ipv4):
     cluster_info = client.cluster_get(cluster_id)
-    api_vip, ingress_vip = _get_vips_ips()
+    api_vip, ingress_vip = _get_vips_ips(ipv4)
     cluster_info.vip_dhcp_allocation = False
     cluster_info.api_vip = api_vip
     cluster_info.ingress_vip = ingress_vip
@@ -265,13 +248,21 @@ def set_cluster_machine_cidr(client, cluster_id, machine_cidr):
     client.update_cluster(cluster_id, cluster_info)
 
 
-def _get_vips_ips():
-    network_subnet_starting_ip = str(
-        ipaddress.ip_address(
-            ipaddress.IPv6Network(args.vm_network_cidr).network_address
+def _get_vips_ips(ipv4):
+    if ipv4:
+        network_subnet_starting_ip = str(
+            ipaddress.ip_address(
+                ipaddress.IPv4Network(args.vm_network_cidr).network_address
+            )
+            + 100
         )
-        + 100
-    )
+    else:
+        network_subnet_starting_ip = str(
+            ipaddress.ip_address(
+                ipaddress.IPv6Network(args.vm_network_cidr6).network_address
+            )
+            + 100
+        )
     ips = utils.create_ip_address_list(
         2, starting_ip_addr=str(ipaddress.ip_address(network_subnet_starting_ip))
     )
@@ -305,6 +296,7 @@ def _create_node_details(cluster_name):
         "cluster_name": cluster_name,
         "cluster_domain": args.base_dns_domain,
         "machine_cidr": args.vm_network_cidr,
+        "machine_cidr6": args.vm_network_cidr6,
         "libvirt_network_name": consts.TEST_NETWORK + args.namespace,
         "libvirt_network_mtu": args.network_mtu,
         "libvirt_network_if": args.network_bridge,
@@ -312,12 +304,13 @@ def _create_node_details(cluster_name):
         "libvirt_master_disk": args.master_disk,
         'libvirt_secondary_network_name': consts.TEST_SECONDARY_NETWORK + args.namespace,
         'libvirt_secondary_network_if': f's{args.network_bridge}',
-        'provisioning_cidr': _get_provisioning_cidr(),
+        'provisioning_cidr': _get_provisioning_cidr(args.vm_network_cidr),
+        'provisioning_cidr6': _get_provisioning_cidr(args.vm_network_cidr6),
     }
 
 
-def _get_provisioning_cidr():
-    provisioning_cidr = IPNetwork(args.vm_network_cidr)
+def _get_provisioning_cidr(cidr):
+    provisioning_cidr = IPNetwork(cidr)
     provisioning_cidr += args.ns_index + consts.NAMESPACE_POOL_SIZE
     return str(provisioning_cidr)
 
@@ -396,7 +389,7 @@ def nodes_flow(client, cluster_name, cluster, image_path):
             if args.vip_dhcp_allocation:
                 set_cluster_machine_cidr(client, cluster.id, args.vm_network_cidr)
             else:
-                set_cluster_vips(client, cluster.id)
+                set_cluster_vips(client, cluster.id, ipv4)
         else:
             log.info("VIPs already configured")
 
@@ -433,14 +426,14 @@ def execute_day1_flow(cluster_name):
         args.base_dns_domain = args.managed_dns_domains.split(":")[0]
 
     if not args.vm_network_cidr:
-        if args.ipv4 == 'yes':
-            net_cidr = IPNetwork('192.168.126.0/24')
-        elif args.ipv6 == 'yes':
-            net_cidr = IPNetwork('2001:db8::/120')
-        else:
-            raise Exception("At least one of IPv4/IPv6 must be enabled ")
+        net_cidr = IPNetwork('192.168.126.0/24')
         net_cidr += args.ns_index
         args.vm_network_cidr = str(net_cidr)
+
+    if not args.vm_network_cidr6:
+        net_cidr = IPNetwork('2001:db8::/120')
+        net_cidr += args.ns_index
+        args.vm_network_cidr6 = str(net_cidr)
 
     if not args.network_bridge:
         args.network_bridge = f'tt{args.ns_index}'
@@ -590,8 +583,16 @@ if __name__ == "__main__":
     parser.add_argument(
         "-vN",
         "--vm-network-cidr",
-        help="Vm network cidr",
+        help="Vm network cidr for IPv4",
         type=str,
+        default='192.168.126.0/24'
+    )
+    parser.add_argument(
+        "-vN6",
+        "--vm-network-cidr6",
+        help="Vm network cidr for IPv6",
+        type=str,
+        default='2001:db8::/120'
     )
     parser.add_argument(
         "-nM", "--network-mtu", help="Network MTU", type=int, default=1500
@@ -734,4 +735,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if not args.pull_secret and args.install_cluster:
         raise Exception("Can't install cluster without pull secret, please provide one")
+    if not 'yes' not in [args.ipv4, args.ipv4]:
+        raise Exception("At least one of IPv4/IPv6 must be provided")
     main()
