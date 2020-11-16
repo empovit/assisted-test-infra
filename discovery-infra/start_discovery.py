@@ -106,13 +106,13 @@ def _secondary_tfvars(master_count, nodes_details, ipv4):
     else:
         secondary_master_starting_ip = str(
             ipaddress.ip_address(
-                ipaddress.IPv6Network(nodes_details['provisioning_cidr']).network_address
+                ipaddress.IPv6Network(nodes_details['provisioning_cidr6']).network_address
             )
             + 16
         )
         secondary_worker_starting_ip = str(
             ipaddress.ip_address(
-                ipaddress.IPv6Network(nodes_details['provisioning_cidr']).network_address
+                ipaddress.IPv6Network(nodes_details['provisioning_cidr6']).network_address
             )
             + 16
             + int(master_count)
@@ -123,7 +123,7 @@ def _secondary_tfvars(master_count, nodes_details, ipv4):
                 nodes_details['worker_count'],
                 starting_ip_addr=secondary_worker_starting_ip
             ),
-            'libvirt_secondary_master_ips': utils.create_ip_address_list(
+            'libvirt_secondary_master_ips': utils.create_ip_address_nested_list(
                 master_count,
                 starting_ip_addr=secondary_master_starting_ip
             )
@@ -735,6 +735,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if not args.pull_secret and args.install_cluster:
         raise Exception("Can't install cluster without pull secret, please provide one")
-    if not 'yes' not in [args.ipv4, args.ipv4]:
+    if 'yes' not in [args.ipv4, args.ipv4]:
         raise Exception("At least one of IPv4/IPv6 must be provided")
     main()

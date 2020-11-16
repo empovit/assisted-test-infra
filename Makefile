@@ -46,7 +46,7 @@ HTTPS_PROXY_URL := $(or $(HTTPS_PROXY_URL), "")
 NO_PROXY_VALUES := $(or $(NO_PROXY_VALUES), "")
 VIP_DHCP_ALLOCATION := $(or $(VIP_DHCP_ALLOCATION),yes)
 IPv4 := $(or $(IPv4),yes)
-IPv6 := $(or $(IPv6, "")
+IPv6 := $(or $(IPv6), "")
 
 #day2 params
 API_VIP_IP := $(or $(API_VIP_IP),"")
@@ -99,6 +99,7 @@ OCP_KUBECONFIG := $(or $(OCP_KUBECONFIG),build/kubeconfig)
 ###########
 
 all: create_full_environment run_full_flow_with_install
+
 
 destroy: destroy_nodes delete_minikube_profile kill_port_forwardings delete_podman_localhost
 
