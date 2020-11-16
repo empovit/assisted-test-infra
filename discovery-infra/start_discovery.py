@@ -81,13 +81,25 @@ def fill_tfvars(
     tfvars['libvirt_worker_ips'] = utils.create_ip_address_list(
         nodes_details['worker_count'], starting_ip_addr=worker_starting_ip
     )
+    machine_cidr_addresses = []
+    provisioning_cidr_addresses = []
+    if ipv4:
+        machine_cidr_addresses += ["192.168.126.0/24"]
+        provisioning_cidr_addresses += ["192.168.140.0/24"]
+    if ipv6:
+        machine_cidr_addresses += ["2001:db8::/120"]
+        provisioning_cidr_addresses += ["2001:db9::/120"]
+
+
+    tfvars['machine_cidr_addresses'] = machine_cidr_addresses
+    tfvars['provisioning_cidr_addresses'] = provisioning_cidr_addresses
     tfvars['api_vip'] = _get_vips_ips()[0]
     tfvars['libvirt_storage_pool_path'] = storage_path
     tfvars['ipv4'] = ipv4
     tfvars['ipv6'] = ipv6
-    tfvars.update(nodes_details, ipv4)
+    tfvars.update(nodes_details)
 
-    tfvars.update(_secondary_tfvars(master_count, nodes_details))
+    tfvars.update(_secondary_tfvars(master_count, nodes_details, ipv4))
 
     with open(tfvars_json_file, "w") as _file:
         json.dump(tfvars, _file)
