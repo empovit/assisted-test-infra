@@ -272,12 +272,13 @@ def _get_vips_ips(ipv4):
 # TODO add config file
 # Converts params from args to assisted-service cluster params
 def _cluster_create_params():
+    ipv4 = args.ipv4 == 'yes'
     params = {
         "openshift_version": args.openshift_version,
         "base_dns_domain": args.base_dns_domain,
-        "cluster_network_cidr": args.cluster_network,
-        "cluster_network_host_prefix": args.host_prefix,
-        "service_network_cidr": args.service_network,
+        "cluster_network_cidr": args.cluster_network if ipv4 else args.cluster_network6,
+        "cluster_network_host_prefix": args.host_prefix if ipv4 else args.host_prefix6,
+        "service_network_cidr": args.service_network if ipv4 else args.service_network6,
         "pull_secret": args.pull_secret,
         "http_proxy": args.http_proxy,
         "https_proxy": args.https_proxy,
@@ -548,7 +549,17 @@ if __name__ == "__main__":
         default="10.128.0.0/14",
     )
     parser.add_argument(
+        "-cn6",
+        "--cluster-network6",
+        help="Cluster network with cidr",
+        type=str,
+        default="2002:db8::/110",
+    )
+    parser.add_argument(
         "-hp", "--host-prefix", help="Host prefix to use", type=int, default=23
+    )
+    parser.add_argument(
+        "-hp6", "--host-prefix6", help="Host prefix to use", type=int, default=119
     )
     parser.add_argument(
         "-sn",
@@ -556,6 +567,13 @@ if __name__ == "__main__":
         help="Network for services",
         type=str,
         default="172.30.0.0/16",
+    )
+    parser.add_argument(
+        "-sn6",
+        "--service-network6",
+        help="Network for services",
+        type=str,
+        default="2003:db8::/112",
     )
     parser.add_argument(
         "-ps", "--pull-secret", help="Pull secret", type=str, default=""
