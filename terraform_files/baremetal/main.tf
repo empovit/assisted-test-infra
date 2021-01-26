@@ -45,9 +45,16 @@ resource "libvirt_network" "net" {
         ip       = hosts.value.ip
       }
     }
+
+    dynamic "hosts" {
+      for_each = var.use_reverse_proxy ? var.reverse_proxy_hosts : []
+      content {
+        hostname  = hosts.value
+        ip        = var.reverse_proxy_ip
+      }
+    }
   }
 }
-
 
 resource "libvirt_network" "secondary_net" {
   name = var.libvirt_secondary_network_name

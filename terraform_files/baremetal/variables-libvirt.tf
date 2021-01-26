@@ -180,3 +180,18 @@ variable "single_node_ip" {
   type = string
   default = ""
 }
+
+variable "reverse_proxy_ip" {
+  type    = string
+  default = ""
+}
+
+variable "reverse_proxy_hosts" {
+  type = list(string)
+  default = []
+}
+
+variable "use_reverse_proxy" {
+  type    = bool
+  default = false
+}
