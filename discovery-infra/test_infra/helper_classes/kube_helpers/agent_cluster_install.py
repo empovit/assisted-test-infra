@@ -57,7 +57,7 @@ class AgentClusterInstall(BaseCustomResource):
         body = {
             "apiVersion": f"{self._api_group}/{self._api_version}",
             "kind": self._kind,
-            "metadata": self.ref.as_dict(),
+            "metadata": self.ref.as_dict().update({"annotations": {"agent-install.openshift.io/install-config-overrides": "{\"networking\": {\"networkType\": \"OVNKubernetes\", \"machineNetwork\": [{\"cidr\": \"192.168.126.0/24\"}, {\"cidr\": \"1001:db8::/120\"}], \"clusterNetwork\": [{\"cidr\": \"10.128.0.0/14\", \"hostPrefix\": 23}, {\"cidr\": \"fd01::/48\", \"hostPrefix\": 64}], \"serviceNetwork\": [\"172.30.0.0/16\", \"fd02::/112\"]}}"}}),
             "spec": self._get_spec_dict(
                 cluster_deployment_ref=cluster_deployment_ref,
                 cluster_cidr=cluster_cidr,
